@@ -1,0 +1,76 @@
+#!/bin/bash
+
+#1 ask for the name of the webpage
+#2 create the webpage file in /var/www/html
+#3change file ownership
+
+#1
+echo "Enter the domain name of your page."
+read sitename
+
+	cd /var/www/html
+	mkdir $sitename.local
+	cd $sitename.local
+#2
+	sudo echo "
+	<html>
+	<head>
+		<title>$sitename.local</title>
+	</head>
+	<body>
+		<h1>$sitename.local</h1>
+	</body>
+	</html>" > index.html
+
+
+	
+	
+
+#create new user and password
+echo "Now create the user"
+sudo useradd $sitename
+echo "Set password for $sitename "
+sudo passwd $sitename
+#give ownership to user
+	sudo chown $sitename /var/www/html/$sitename.local/index.html
+	sudo chgrp $sitename /var/www/html/$sitename.local/index.html
+	sudo chown $sitename /var/www/html/$sitename.local
+	sudo chgrp $sitename /var/www/html/$sitename.local
+	sudo chmod 777 /var/cache/bind
+#make webpage executable
+	sudo chmod 755 /var/www/html/$sitename.local
+#edit named.conf
+	cd /etc/bind
+	echo "zone \""$sitename.local\"" IN {
+		type master;
+		file \""$sitename.local\"";
+	};" > named.conf.local
+#create file in /var/cache/bind
+	cd /var/cache/bind
+	echo "
+\$TTL 1W
+@	IN	SOA	ns1.$sitename.local. root	(
+	2020051701	;serial - 123456789
+	3H	;refresh
+	30M	;retry
+	2W	;expiry
+	1W)	;minimum
+	IN	NS	ns1.$sitename.local.
+ns1	IN	A	127.0.0.1
+www	IN	A	127.0.0.1" > $sitename.local	
+#restarting the bind9 service
+	sudo systemctl restart bind9
+#sudo cp $sitename.local /var/cache/bind
+#editing apache webserver config
+	cd /etc/apache2/sites-enabled
+	echo "
+<VirtualHost *:80>
+	Servername www.$sitename.local
+	DocumentRoot "/var/www/html/$sitename.local"
+</VirtualHost>" > $sitename.conf		
+#restarting the services
+#add the dns a. Restart named.service
+#add apache server information a. Restart httpd
+	sudo systemctl restart apache2
+	sudo systemctl restart bind9
+	firefox www.$sitename.local&
